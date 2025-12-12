@@ -19,18 +19,21 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "StrictHostKeyChecking=no" >> ~/.ssh/config
 
-      - name: Stop Nginx on EC2
+      - name: Deploy to EC2
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo systemctl stop nginx"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            # Stop Nginx
+            sudo systemctl stop nginx
 
-      - name: Remove old content
-        run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo rm -rf /var/www/my-react-app/*"
+            # Remove old content
+            sudo rm -rf /var/www/my-react-app/*
 
-      - name: Copy repo content to EC2
-        run: |
+            # Copy repo content from GitHub runner (using rsync over SSH)
+            # First exit to run rsync from runner
+          EOF
+
+          # Copy repo content excluding .github folder
           rsync -av --exclude='.github' ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/my-react-app/
 
-      - name: Start Nginx on EC2
-        run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo systemctl start nginx"
+          # Connect again to restart Nginx
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo systemctl start nginx"
