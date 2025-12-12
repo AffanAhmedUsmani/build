@@ -19,21 +19,17 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "StrictHostKeyChecking=no" >> ~/.ssh/config
 
-      - name: Prepare EC2 temp folder
+      - name: Deploy repo to EC2
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            mkdir -p /var/www/my-react-app-temp
-            rm -rf /var/www/my-react-app-temp/*
-          EOF
-
-      - name: Copy build files to EC2
-        run: |
-          scp -r build/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/my-react-app-temp/
-
-      - name: Deploy to production
-        run: |
+          # Remove existing content in my-react-app except .ssh
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             sudo rm -rf /var/www/my-react-app/*
-            sudo cp -r /var/www/my-react-app-temp/* /var/www/my-react-app/
+          EOF
+
+          # Copy all repo content except .github to my-react-app
+          rsync -av --exclude='.github' ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/my-react-app/
+
+          # Restart Nginx
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             sudo systemctl restart nginx
           EOF
