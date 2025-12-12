@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Configure SSH
@@ -19,18 +19,19 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "StrictHostKeyChecking=no" >> ~/.ssh/config
 
-      - name: Deploy build to EC2
+      - name: Prepare EC2 temp folder
         run: |
-          # Create temp folder and clean it
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             mkdir -p /var/www/my-react-app-temp
             rm -rf /var/www/my-react-app-temp/*
           EOF
 
-          # Copy build folder from repo to EC2 temp folder
+      - name: Copy build files to EC2
+        run: |
           scp -r build/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/my-react-app-temp/
 
-          # Move build files to production folder and restart Nginx
+      - name: Deploy to production
+        run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             sudo rm -rf /var/www/my-react-app/*
             sudo cp -r /var/www/my-react-app-temp/* /var/www/my-react-app/
